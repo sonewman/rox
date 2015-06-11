@@ -1,6 +1,7 @@
 package rox
 
 import (
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -21,7 +22,7 @@ type Rox struct {
 
 func New(target *url.URL) *Rox {
 	return &Rox{
-		MakeRequest: defaultMakeRequest,
+		MakeRequest: DefaultMakeRequest,
 		Target:      target,
 	}
 }
@@ -144,7 +145,12 @@ func MakeRequest(p *Rox, out *http.Request) (*http.Response, error) {
 	return res, err
 }
 
-func defaultMakeRequest(p *Rox, rw http.ResponseWriter, in *http.Request, out *http.Request) {
+func DefaultMakeRequest(p *Rox, rw http.ResponseWriter, in *http.Request, out *http.Request) {
+	// last minute check of scheme
+	if out.URL.Scheme == "" {
+		out.URL.Scheme = "http"
+	}
+
 	res, err := MakeRequest(p, out)
 
 	if err != nil {
@@ -194,6 +200,24 @@ func (p *Rox) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	// if we have a target then use it's
+	// defined options
+	if p.Target != nil {
+		p.transferTarget(req, out)
+
+		// otherwise we want to infer the host header
+		// provided it is not the same host as us
+	} else if out.URL.Host != out.Host {
+		out.URL.Host = out.Host
+	} else {
+		panic(errors.New("Cannot proxy http request to same domain"))
+	}
+
+	// call trigger MakeRequest hook
+	p.MakeRequest(p, rw, req, out)
+}
+
+func (p *Rox) transferTarget(req *http.Request, out *http.Request) {
 	// set scheme of request ot that of the target
 	out.URL.Scheme = p.Target.Scheme
 
@@ -211,9 +235,6 @@ func (p *Rox) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	} else {
 		req.URL.RawQuery = targetQuery + "&" + req.URL.RawQuery
 	}
-
-	// call trigger MakeRequest hook
-	p.MakeRequest(p, rw, req, out)
 }
 
 func (p *Rox) CopyResponse(dst io.Writer, src io.Reader) {
