@@ -134,7 +134,7 @@ func (p *Rox) newOutgoingRequest(rw http.ResponseWriter, incoming *http.Request)
 	return out
 }
 
-func MakeRequest(p *Rox, out *http.Request) (*http.Response, error) {
+func DoRequest(p *Rox, out *http.Request) (*http.Response, error) {
 	transport := p.Transport
 	if transport == nil {
 		transport = http.DefaultTransport
@@ -151,7 +151,7 @@ func DefaultMakeRequest(p *Rox, rw http.ResponseWriter, in *http.Request, out *h
 		out.URL.Scheme = "http"
 	}
 
-	res, err := MakeRequest(p, out)
+	res, err := DoRequest(p, out)
 
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
